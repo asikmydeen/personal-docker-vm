@@ -1,0 +1,65 @@
+# =============================================================================
+# Claude Code Dev VM — zshrc (adapted from host)
+# =============================================================================
+
+# ---- Fix unknown TERM (Ghostty, Kitty, etc.) ----
+if ! infocmp "$TERM" &>/dev/null; then
+  export TERM=xterm-256color
+fi
+
+# Path
+export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH
+
+# Oh My Zsh
+export ZSH="$HOME/.oh-my-zsh"
+ZSH_THEME="robbyrussell"
+
+plugins=(
+  git
+  docker
+  aws
+  node
+  npm
+  python
+  zsh-autosuggestions
+  zsh-syntax-highlighting
+)
+
+source $ZSH/oh-my-zsh.sh
+unalias gsd 2>/dev/null  # conflicts with gsd-pi CLI
+
+# ---- Bedrock integration ----
+export CLAUDE_CODE_USE_BEDROCK=1
+# AWS_BEARER_TOKEN_BEDROCK is injected via env vars from .env
+# AWS_REGION / AWS_DEFAULT_REGION injected via env vars from .env
+
+# ---- Claude Code model ----
+export ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-us.anthropic.claude-sonnet-4-20250514-v1:0}"
+
+# ---- SSH agent (for GitHub key) ----
+if [ -z "$SSH_AUTH_SOCK" ]; then
+  eval "$(ssh-agent -s)" > /dev/null 2>&1
+  ssh-add ~/.ssh/id_ed25519_github 2>/dev/null
+fi
+
+# ---- Aliases ----
+alias ll='ls -alFh'
+alias la='ls -A'
+alias l='ls -CF'
+alias gs='git status'
+alias gd='git diff'
+alias gl='git log --oneline -20'
+alias c='claude'
+alias projects='cd ~/projects'
+
+# ---- fzf ----
+[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ] && source /usr/share/doc/fzf/examples/key-bindings.zsh
+[ -f /usr/share/doc/fzf/examples/completion.zsh ] && source /usr/share/doc/fzf/examples/completion.zsh
+
+# ---- Bun ----
+export BUN_INSTALL="$HOME/.bun"
+[ -d "$BUN_INSTALL" ] && export PATH="$BUN_INSTALL/bin:$PATH"
+[ -s "$BUN_INSTALL/_bun" ] && source "$BUN_INSTALL/_bun"
+
+# ---- Local overrides ----
+[ -f ~/.zshrc.local ] && source ~/.zshrc.local

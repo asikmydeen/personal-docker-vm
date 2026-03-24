@@ -1,0 +1,106 @@
+# =============================================================================
+# Claude Code Dev VM — Podman-compatible Compose
+# Usage:
+#   podman compose up -d --build
+#   ssh developer@localhost -p 2222
+# =============================================================================
+
+services:
+  claude-vm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: claude-dev-vm
+    hostname: claude-dev-vm
+
+    # ---- Port mapping -------------------------------------------------------
+    ports:
+      - "2222:22"   # SSH
+
+    # ---- Environment --------------------------------------------------------
+    env_file:
+      - .env
+
+    environment:
+      - CLAUDE_CODE_USE_BEDROCK=1
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-us.anthropic.claude-sonnet-4-20250514-v1:0}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+      - AWS_BEARER_TOKEN_BEDROCK=${AWS_BEARER_TOKEN_BEDROCK:-}
+      - GIT_USER_NAME=${GIT_USER_NAME:-Asik Mydeen}
+      - GIT_USER_EMAIL=${GIT_USER_EMAIL:-writetoasik@gmail.com}
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - TERM=xterm-256color
+
+    # ---- Security (needed for Docker socket access) -------------------------
+    security_opt:
+      - label=disable
+
+    # ---- Persistent volumes -------------------------------------------------
+    volumes:
+      # Projects workspace — your main working directory
+      - projects:/home/developer/projects
+
+      # Podman socket from host — enables Fleet container orchestration
+      # Fleet containers run as siblings (not nested), managed by host Podman
+      - /run/podman/podman.sock:/var/run/docker.sock:rw
+
+      # SSH host keys — prevent host key changes on rebuild
+      - ssh-host-keys:/etc/ssh/ssh_host_keys
+
+      # AWS credentials — persist Bedrock config
+      - aws-config:/home/developer/.aws
+
+      # Claude Code config — persist settings, memory, rules
+      - claude-config:/home/developer/.claude
+      - claude-code-config:/home/developer/.config/claude-code
+
+      # Local bin — persist installed tools
+      - local-bin:/home/developer/.local
+
+      # claude-auto-setup — persist so it doesn't re-clone
+      - claude-setup:/home/developer/claude-auto-setup
+
+    # ---- Resource limits ----------------------------------------------------
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: "4.0"
+        reservations:
+          memory: 2G
+          cpus: "1.0"
+
+    # ---- Health check -------------------------------------------------------
+    healthcheck:
+      test: ["CMD", "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=3", "localhost", "echo ok"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    # ---- Restart policy -----------------------------------------------------
+    restart: unless-stopped
+
+    # ---- Keep container running ---------------------------------------------
+    tty: true
+    stdin_open: true
+
+# =============================================================================
+# Named volumes — all persistent across container rebuilds
+# =============================================================================
+volumes:
+  projects:
+    name: claude-vm-projects
+  ssh-host-keys:
+    name: claude-vm-ssh-host-keys
+  aws-config:
+    name: claude-vm-aws-config
+  claude-config:
+    name: claude-vm-claude-config
+  claude-code-config:
+    name: claude-vm-claude-code-config
+  local-bin:
+    name: claude-vm-local-bin
+  claude-setup:
+    name: claude-vm-claude-setup

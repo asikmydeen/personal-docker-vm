@@ -111,13 +111,8 @@ RUN chmod 600 /home/${USERNAME}/.ssh/id_ed25519_github \
     && chmod 644 /home/${USERNAME}/.ssh/id_ed25519_github.pub
 
 # ---- SSH config for GitHub -------------------------------------------------
-RUN cat > /home/${USERNAME}/.ssh/config << 'EOF'
-Host github.com
-  AddKeysToAgent yes
-  IdentityFile ~/.ssh/id_ed25519_github
-  StrictHostKeyChecking accept-new
-EOF
-RUN chmod 600 /home/${USERNAME}/.ssh/config \
+RUN printf 'Host github.com\n  AddKeysToAgent yes\n  IdentityFile ~/.ssh/id_ed25519_github\n  StrictHostKeyChecking accept-new\n' > /home/${USERNAME}/.ssh/config \
+    && chmod 600 /home/${USERNAME}/.ssh/config \
     && chown ${USERNAME}:${USERNAME} /home/${USERNAME}/.ssh/config
 
 # ---- Clone claude-auto-setup -----------------------------------------------

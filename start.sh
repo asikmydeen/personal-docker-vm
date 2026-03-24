@@ -14,19 +14,26 @@ info()  { echo -e "${GREEN}[INFO]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 
-# --- Detect container runtime ------------------------------------------------
+# --- Detect container runtime and compose command ----------------------------
 if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
   RUNTIME="docker"
-  COMPOSE="docker compose"
   DEFAULT_SOCK="/var/run/docker.sock"
+  # Detect compose v2 (docker compose) vs v1 (docker-compose)
+  if docker compose version &>/dev/null 2>&1; then
+    COMPOSE="docker compose"
+  elif command -v docker-compose &>/dev/null; then
+    COMPOSE="docker-compose"
+  else
+    error "Docker found but neither 'docker compose' nor 'docker-compose' available."
+  fi
 elif command -v podman &>/dev/null; then
   RUNTIME="podman"
-  COMPOSE="podman compose"
   DEFAULT_SOCK="/run/podman/podman.sock"
+  COMPOSE="podman compose"
 else
   error "Neither docker nor podman found. Install one first."
 fi
-info "Using runtime: $RUNTIME"
+info "Using runtime: $RUNTIME ($COMPOSE)"
 
 # --- Create .env if missing ---------------------------------------------------
 if [ ! -f .env ]; then

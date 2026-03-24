@@ -142,6 +142,18 @@ if [ -d "${SETUP_DIR}" ] && [ ! -f "${SETUP_MARKER}" ]; then
 fi
 
 # =============================================================================
+# 4b. Install claude-mem plugin (persistent memory across sessions)
+# =============================================================================
+CLAUDE_MEM_MARKER="${HOME_DIR}/.claude-mem-installed"
+if [ ! -f "${CLAUDE_MEM_MARKER}" ]; then
+  echo ">>> Installing claude-mem plugin..."
+  su -l ${USERNAME} -c 'claude plugin add claude-mem@thedotmack 2>/dev/null' || {
+    echo ">>> claude-mem install skipped (non-fatal)"
+  }
+  touch "${CLAUDE_MEM_MARKER}"
+fi
+
+# =============================================================================
 # 5. Docker socket access (for Fleet)
 # =============================================================================
 DOCKER_SOCK="/var/run/docker.sock"

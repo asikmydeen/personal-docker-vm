@@ -1,6 +1,6 @@
 # Claude Code Dev VM
 
-A persistent, SSH-accessible Docker development environment with Claude Code pre-configured for AWS Bedrock. Built for Podman on macOS (Apple Silicon).
+A persistent, SSH-accessible Docker development environment with Claude Code pre-configured for AWS Bedrock. Works with both **Docker** and **Podman**.
 
 ## What's Inside
 
@@ -23,7 +23,7 @@ A persistent, SSH-accessible Docker development environment with Claude Code pre
 
 ### Prerequisites
 
-- **Podman** installed and machine running (`podman machine start`)
+- **Docker** or **Podman** installed and running
 - **SSH key pair** on host (`~/.ssh/id_ed25519.pub` or similar)
 - **AWS Bedrock** bearer token or IAM credentials
 
@@ -62,14 +62,20 @@ AWS_REGION=us-east-1
 ### 3. Build and start
 
 ```bash
-podman compose up -d --build
+# Docker
+docker compose up -d --build
+
+# Podman
+docker compose up -d          # or: docker compose up -d --build   # or: podman compose up -d --build
 ```
 
-Or use the helper script (auto-detects your SSH key):
+Or use the helper script (auto-detects Docker/Podman and your SSH key):
 
 ```bash
 ./start.sh
 ```
+
+> **Podman users**: `start.sh` auto-sets `CONTAINER_SOCK=/run/podman/podman.sock` in `.env`. Docker users get `/var/run/docker.sock` by default.
 
 ### 4. Connect
 
@@ -115,29 +121,29 @@ For VS Code Remote SSH, use the same host alias `claude-vm`.
 
 ```bash
 # Start (detached)
-podman compose up -d
+docker compose up -d          # or: podman compose up -d
 
 # Stop (preserves all data)
-podman compose down
+docker compose down            # or: podman compose down
 
 # Restart
-podman compose restart
+docker compose restart          # or: podman compose restart
 
 # Rebuild (after Dockerfile changes — data still preserved)
-podman compose up -d --build
+docker compose up -d          # or: docker compose up -d --build   # or: podman compose up -d --build
 
 # View logs
-podman compose logs -f
+docker compose logs -f          # or: podman compose logs -f
 
 # Shell in without SSH (emergency)
-podman exec -it -u developer claude-dev-vm zsh
+docker exec -it -u developer claude-dev-vm zsh
 ```
 
 ---
 
 ## Persistent Volumes
 
-All data survives `podman compose down` and `podman compose up -d --build`.
+All data survives `docker compose down            # or: podman compose down` and `docker compose up -d          # or: docker compose up -d --build   # or: podman compose up -d --build`.
 
 | Volume | Mount Point | What's Stored |
 |--------|-------------|---------------|
@@ -154,17 +160,17 @@ All data survives `podman compose down` and `podman compose up -d --build`.
 To destroy all data and start from scratch:
 
 ```bash
-podman compose down
-podman volume rm $(podman volume ls -q --filter name=claude-vm-)
-podman compose up -d --build
+docker compose down            # or: podman compose down
+docker volume rm $(docker volume ls -q --filter name=claude-vm-)
+docker compose up -d          # or: docker compose up -d --build   # or: podman compose up -d --build
 ```
 
 To reset only one volume (e.g., Claude config):
 
 ```bash
-podman compose down
-podman volume rm claude-vm-claude-config
-podman compose up -d
+docker compose down            # or: podman compose down
+docker volume rm claude-vm-claude-config
+docker compose up -d          # or: podman compose up -d
 ```
 
 ---
@@ -266,8 +272,8 @@ Fleet is a parallel task execution system in `~/claude-auto-setup/fleet/` that s
 Fleet containers are **siblings** of the VM, not nested. The host Podman socket is mounted into the VM, so when fleet runs `docker run`, it talks to the host's Podman daemon:
 
 ```
-macOS Host
-└── Podman Machine (libkrun VM)
+Host (macOS / Linux)
+└── Docker Engine or Podman Machine
     ├── claude-dev-vm (this VM)
     │   └── fleet.ts orchestrator
     │       └── uses Docker CLI → /var/run/docker.sock
@@ -367,8 +373,8 @@ If you already have fleet configured on your macOS host:
 
 ```bash
 # Run from host terminal (not inside the VM)
-podman cp ~/.claude/fleet/accounts.json claude-dev-vm:/home/developer/.claude/fleet/accounts.json
-podman exec claude-dev-vm chown developer:developer /home/developer/.claude/fleet/accounts.json
+docker cp ~/.claude/fleet/accounts.json claude-dev-vm:/home/developer/.claude/fleet/accounts.json
+docker exec claude-dev-vm chown developer:developer /home/developer/.claude/fleet/accounts.json
 ```
 
 Verify inside the VM:
@@ -458,16 +464,16 @@ Increase if running fleet or multiple Claude sessions.
 
 ```bash
 # Check container is running
-podman ps
+docker ps                       # or: podman ps
 
 # Check logs for SSH errors
-podman logs claude-dev-vm
+docker logs claude-dev-vm
 
 # Emergency shell (bypasses SSH)
-podman exec -it -u developer claude-dev-vm zsh
+docker exec -it -u developer claude-dev-vm zsh
 
 # Verify your SSH key matches
-podman exec claude-dev-vm cat /home/developer/.ssh/authorized_keys
+docker exec claude-dev-vm cat /home/developer/.ssh/authorized_keys
 ```
 
 ### Claude won't authenticate
@@ -482,7 +488,7 @@ env | grep -E "(BEDROCK|BEARER|ANTHROPIC)"
 # ANTHROPIC_MODEL=us.anthropic.claude-sonnet-4-20250514-v1:0
 
 # If missing, check .env on the host and restart:
-podman compose restart
+docker compose restart          # or: podman compose restart
 ```
 
 ### Bearer token expired
@@ -490,7 +496,7 @@ podman compose restart
 Update `.env` on the host with the new token, then:
 
 ```bash
-podman compose restart
+docker compose restart          # or: podman compose restart
 ```
 
 The entrypoint regenerates `~/.zshrc.local` with fresh env vars on every start.
@@ -515,7 +521,7 @@ sudo chown -R developer:developer ~/projects ~/. ~/.claude
 Code changes to Dockerfile/entrypoint require a rebuild. Data is preserved:
 
 ```bash
-podman compose up -d --build
+docker compose up -d          # or: docker compose up -d --build   # or: podman compose up -d --build
 ```
 
 ### Updating Claude Code
@@ -550,8 +556,8 @@ personal-docker-vm/
 ## Architecture
 
 ```
-macOS Host (Podman)
-└── podman machine (libkrun VM)
+Host (macOS / Linux)
+└── Docker Engine or Podman Machine
     └── claude-dev-vm container (Ubuntu 24.04)
         ├── sshd (port 22 → host:2222)
         ├── zsh + oh-my-zsh

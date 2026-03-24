@@ -14,8 +14,19 @@ info()  { echo -e "${GREEN}[INFO]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 
-# --- Pre-flight checks -------------------------------------------------------
-command -v podman >/dev/null 2>&1 || error "podman is not installed"
+# --- Detect container runtime ------------------------------------------------
+if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+  RUNTIME="docker"
+  COMPOSE="docker compose"
+  DEFAULT_SOCK="/var/run/docker.sock"
+elif command -v podman &>/dev/null; then
+  RUNTIME="podman"
+  COMPOSE="podman compose"
+  DEFAULT_SOCK="/run/podman/podman.sock"
+else
+  error "Neither docker nor podman found. Install one first."
+fi
+info "Using runtime: $RUNTIME"
 
 # --- Create .env if missing ---------------------------------------------------
 if [ ! -f .env ]; then
@@ -26,7 +37,6 @@ if [ ! -f .env ]; then
   for key in ~/.ssh/id_ed25519.pub ~/.ssh/id_rsa.pub; do
     if [ -f "$key" ]; then
       SSH_KEY=$(cat "$key")
-      # Use a delimiter that won't appear in SSH keys
       sed -i.bak "s|SSH_PUBLIC_KEY=ssh-ed25519 AAAA... your-key-here|SSH_PUBLIC_KEY=${SSH_KEY}|" .env
       rm -f .env.bak
       info "Auto-detected SSH public key: $key"
@@ -40,6 +50,13 @@ if [ ! -f .env ]; then
   read -p "Press Enter to continue (or Ctrl+C to edit .env first)... "
 fi
 
+# --- Auto-set socket path if not already set ---------------------------------
+if grep -q "^CONTAINER_SOCK=$" .env 2>/dev/null; then
+  sed -i.bak "s|^CONTAINER_SOCK=.*|CONTAINER_SOCK=${DEFAULT_SOCK}|" .env
+  rm -f .env.bak
+  info "Auto-detected socket: $DEFAULT_SOCK"
+fi
+
 # --- Validate SSH key is set --------------------------------------------------
 if grep -q "your-key-here" .env 2>/dev/null; then
   error "SSH_PUBLIC_KEY is not set in .env. Edit .env first."
@@ -47,10 +64,10 @@ fi
 
 # --- Build and start ----------------------------------------------------------
 info "Building Claude Dev VM..."
-podman compose build
+$COMPOSE build
 
 info "Starting Claude Dev VM..."
-podman compose up -d
+$COMPOSE up -d
 
 # --- Wait for SSH to be ready -------------------------------------------------
 info "Waiting for SSH to become available..."
@@ -65,8 +82,9 @@ echo ""
 info "============================================="
 info " Claude Code Dev VM is running!"
 info "============================================="
-info " Connect:  ssh -p 2222 developer@localhost"
-info " Stop:     podman compose down"
-info " Logs:     podman compose logs -f"
-info " Rebuild:  podman compose up -d --build"
+info " Runtime: $RUNTIME"
+info " Connect: ssh -p 2222 developer@localhost"
+info " Stop:    $COMPOSE down"
+info " Logs:    $COMPOSE logs -f"
+info " Rebuild: $COMPOSE up -d --build"
 info "============================================="
